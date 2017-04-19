@@ -1,0 +1,1720 @@
+<!DOCTYPE HTML PUBLIC "-//W3C//DTD HTML 4.0 Transitional//EN">
+<HTML>
+<HEAD>
+	<META HTTP-EQUIV="CONTENT-TYPE" CONTENT="text/html; charset=windows-1252">
+	<TITLE>Regular Expression HOWTO &mdash; Python 2.7.10 documentation</TITLE>
+	<META NAME="GENERATOR" CONTENT="OpenOffice 4.1.1  (Win32)">
+	<META NAME="CREATED" CONTENT="0;0">
+	<META NAME="CHANGEDBY" CONTENT="Armando  Hernandez Marin">
+	<META NAME="CHANGED" CONTENT="20150803;22060835">
+	<STYLE TYPE="text/css">
+	<!--
+		H3.cjk { font-family: "SimSun" }
+		H3.ctl { font-family: "Mangal" }
+		H2.cjk { font-family: "SimSun" }
+		H2.ctl { font-family: "Mangal" }
+		PRE.cjk { font-family: "NSimSun", monospace }
+		TT.cjk { font-family: "NSimSun", monospace }
+	-->
+	</STYLE>
+</HEAD>
+<BODY LANG="en-US" DIR="LTR">
+<FORM ACTION="../search.html">
+	<INPUT TYPE=HIDDEN NAME="check_keywords" VALUE="yes">
+	<INPUT TYPE=HIDDEN NAME="area" VALUE="default">
+</FORM>
+<DIV ID="regular-expression-howto" DIR="LTR">
+	<H1><A NAME="regex-howto"></A>Regular Expression HOWTO<A HREF="#regular-expression-howto">&para;</A></H1>
+	<TABLE CELLPADDING=2 CELLSPACING=2>
+		<COL WIDTH=0>
+		<COL WIDTH=0>
+		<TR VALIGN=TOP>
+			<TH>
+				<P>Author:</P>
+			</TH>
+			<TD>
+				<P>A.M. Kuchling &lt;<A HREF="mailto:amk%40amk.ca">amk@amk.ca</A>&gt;</P>
+			</TD>
+		</TR>
+	</TABLE>
+	<P>Abstract</P>
+	<P>This document is an introductory tutorial to using regular
+	expressions in Python with the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+	module. It provides a gentler introduction than the corresponding
+	section in the Library Reference.</P>
+	<DIV ID="introduction" DIR="LTR">
+		<H2 CLASS="western">Introduction<A HREF="#introduction">&para;</A></H2>
+		<P>The <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+		module was added in Python 1.5, and provides Perl-style regular
+		expression patterns. Earlier versions of Python came with the <TT CLASS="western">regex</TT>
+		module, which provided Emacs-style patterns. The <TT CLASS="western">regex</TT>
+		module was removed completely in Python 2.5.</P>
+		<P>Regular expressions (called REs, or regexes, or regex patterns)
+		are essentially a tiny, highly specialized programming language
+		embedded inside Python and made available through the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+		module. Using this little language, you specify the rules for the
+		set of possible strings that you want to match; this set might
+		contain English sentences, or e-mail addresses, or TeX commands, or
+		anything you like. You can then ask questions such as &ldquo;Does
+		this string match the pattern?&rdquo;, or &ldquo;Is there a match
+		for the pattern anywhere in this string?&rdquo;. You can also use
+		REs to modify a string or to split it apart in various ways.</P>
+		<P>Regular expression patterns are compiled into a series of
+		bytecodes which are then executed by a matching engine written in
+		C. For advanced use, it may be necessary to pay careful attention
+		to how the engine will execute a given RE, and write the RE in a
+		certain way in order to produce bytecode that runs faster.
+		Optimization isn&rsquo;t covered in this document, because it
+		requires that you have a good understanding of the matching
+		engine&rsquo;s internals.</P>
+		<P>The regular expression language is relatively small and
+		restricted, so not all possible string processing tasks can be done
+		using regular expressions. There are also tasks that <EM>can</EM>
+		be done with regular expressions, but the expressions turn out to
+		be very complicated. In these cases, you may be better off writing
+		Python code to do the processing; while Python code will be slower
+		than an elaborate regular expression, it will also probably be more
+		understandable.</P>
+	</DIV>
+	<DIV ID="simple-patterns" DIR="LTR">
+		<H2 CLASS="western">Simple Patterns<A HREF="#simple-patterns">&para;</A></H2>
+		<P>We&rsquo;ll start by learning about the simplest possible
+		regular expressions. Since regular expressions are used to operate
+		on strings, we&rsquo;ll begin with the most common task: matching
+		characters.</P>
+		<P>For a detailed explanation of the computer science underlying
+		regular expressions (deterministic and non-deterministic finite
+		automata), you can refer to almost any textbook on writing
+		compilers.</P>
+		<DIV ID="matching-characters" DIR="LTR">
+			<H3 CLASS="western">Matching Characters<A HREF="#matching-characters">&para;</A></H3>
+			<P>Most letters and characters will simply match themselves. For
+			example, the regular expression <TT CLASS="western">test</TT> will
+			match the string <TT CLASS="western">test</TT> exactly. (You can
+			enable a case-insensitive mode that would let this RE match <TT CLASS="western">Test</TT>
+			or <TT CLASS="western">TEST</TT> as well; more about this later.)</P>
+			<P>There are exceptions to this rule; some characters are special
+			<EM>metacharacters</EM>, and don&rsquo;t match themselves.
+			Instead, they signal that some out-of-the-ordinary thing should be
+			matched, or they affect other portions of the RE by repeating them
+			or changing their meaning. Much of this document is devoted to
+			discussing various metacharacters and what they do.</P>
+			<P>Here&rsquo;s a complete list of the metacharacters; their
+			meanings will be discussed in the rest of this HOWTO.</P>
+			<PRE CLASS="western" STYLE="margin-bottom: 0.2in">. ^ $ * + ? { } [ ] \ | ( )</PRE><P>
+			The first metacharacters we&rsquo;ll look at are <TT CLASS="western">[</TT>
+			and <TT CLASS="western">]</TT>. They&rsquo;re used for specifying
+			a character class, which is a set of characters that you wish to
+			match. Characters can be listed individually, or a range of
+			characters can be indicated by giving two characters and
+			separating them by a <TT CLASS="western">'-'</TT>. For example,
+			<TT CLASS="western">[abc]</TT> will match any of the characters <TT CLASS="western">a</TT>,
+			<TT CLASS="western">b</TT>, or <TT CLASS="western">c</TT>; this is
+			the same as <TT CLASS="western">[a-c]</TT>, which uses a range to
+			express the same set of characters. If you wanted to match only
+			lowercase letters, your RE would be <TT CLASS="western">[a-z]</TT>.</P>
+			<P>Metacharacters are not active inside classes. For example,
+			<TT CLASS="western">[akm$]</TT> will match any of the characters
+			<TT CLASS="western">'a'</TT>, <TT CLASS="western">'k'</TT>, <TT CLASS="western">'m'</TT>,
+			or <TT CLASS="western">'$'</TT>; <TT CLASS="western">'$'</TT> is
+			usually a metacharacter, but inside a character class it&rsquo;s
+			stripped of its special nature.</P>
+			<P>You can match the characters not listed within the class by
+			<EM>complementing</EM> the set. This is indicated by including a
+			<TT CLASS="western">'^'</TT> as the first character of the class;
+			<TT CLASS="western">'^'</TT> outside a character class will simply
+			match the <TT CLASS="western">'^'</TT> character. For example,
+			<TT CLASS="western">[^5]</TT> will match any character except <TT CLASS="western">'5'</TT>.</P>
+			<P>Perhaps the most important metacharacter is the backslash, <TT CLASS="western">\</TT>.
+			As in Python string literals, the backslash can be followed by
+			various characters to signal various special sequences. It&rsquo;s
+			also used to escape all the metacharacters so you can still match
+			them in patterns; for example, if you need to match a <TT CLASS="western">[</TT>
+			or <TT CLASS="western">\</TT>, you can precede them with a
+			backslash to remove their special meaning: <TT CLASS="western">\[</TT>
+			or <TT CLASS="western">\\</TT>.</P>
+			<P>Some of the special sequences beginning with <TT CLASS="western">'\'</TT>
+			represent predefined sets of characters that are often useful,
+			such as the set of digits, the set of letters, or the set of
+			anything that isn&rsquo;t whitespace. The following predefined
+			special sequences are a subset of those available. The equivalent
+			classes are for byte string patterns. For a complete list of
+			sequences and expanded class definitions for Unicode string
+			patterns, see the last part of <EM><A HREF="../library/re.html#re-syntax">Regular
+			Expression Syntax</A></EM>.</P>
+			<DL>
+				<DT><TT CLASS="western">\d</TT> 
+				</DT><DD>
+				Matches any decimal digit; this is equivalent to the class <TT CLASS="western">[0-9]</TT>.
+								</DD><DT>
+				<TT CLASS="western">\D</TT> 
+				</DT><DD>
+				Matches any non-digit character; this is equivalent to the class
+				<TT CLASS="western">[^0-9]</TT>. 
+				</DD><DT>
+				<TT CLASS="western">\s</TT> 
+				</DT><DD>
+				Matches any whitespace character; this is equivalent to the class
+				<TT CLASS="western">[ \t\n\r\f\v]</TT>. 
+				</DD><DT>
+				<TT CLASS="western">\S</TT> 
+				</DT><DD>
+				Matches any non-whitespace character; this is equivalent to the
+				class <TT CLASS="western">[^ \t\n\r\f\v]</TT>. 
+				</DD><DT>
+				<TT CLASS="western">\w</TT> 
+				</DT><DD>
+				Matches any alphanumeric character; this is equivalent to the
+				class <TT CLASS="western">[a-zA-Z0-9_]</TT>. 
+				</DD><DT>
+				<TT CLASS="western">\W</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Matches any non-alphanumeric character; this is equivalent to the
+				class <TT CLASS="western">[^a-zA-Z0-9_]</TT>. 
+				</DD></DL>
+			<P>
+			These sequences can be included inside a character class. For
+			example, <TT CLASS="western">[\s,.]</TT> is a character class that
+			will match any whitespace character, or <TT CLASS="western">','</TT>
+			or <TT CLASS="western">'.'</TT>.</P>
+			<P>The final metacharacter in this section is <TT CLASS="western">.</TT>.
+			It matches anything except a newline character, and there&rsquo;s
+			an alternate mode (<TT CLASS="western">re.DOTALL</TT>) where it
+			will match even a newline. <TT CLASS="western">'.'</TT> is often
+			used where you want to match &ldquo;any character&rdquo;.</P>
+		</DIV>
+		<DIV ID="repeating-things" DIR="LTR">
+			<H3 CLASS="western">Repeating Things<A HREF="#repeating-things">&para;</A></H3>
+			<P>Being able to match varying sets of characters is the first
+			thing regular expressions can do that isn&rsquo;t already possible
+			with the methods available on strings. However, if that was the
+			only additional capability of regexes, they wouldn&rsquo;t be much
+			of an advance. Another capability is that you can specify that
+			portions of the RE must be repeated a certain number of times.</P>
+			<P>The first metacharacter for repeating things that we&rsquo;ll
+			look at is <TT CLASS="western">*</TT>. <TT CLASS="western">*</TT>
+			doesn&rsquo;t match the literal character <TT CLASS="western">*</TT>;
+			instead, it specifies that the previous character can be matched
+			zero or more times, instead of exactly once.</P>
+			<P>For example, <TT CLASS="western">ca*t</TT> will match <TT CLASS="western">ct</TT>
+			(0 <TT CLASS="western">a</TT> characters), <TT CLASS="western">cat</TT>
+			(1 <TT CLASS="western">a</TT>), <TT CLASS="western">caaat</TT> (3
+			<TT CLASS="western">a</TT> characters), and so forth. The RE
+			engine has various internal limitations stemming from the size of
+			C&rsquo;s <TT CLASS="western">int</TT> type that will prevent it
+			from matching over 2 billion <TT CLASS="western">a</TT>
+			characters; you probably don&rsquo;t have enough memory to
+			construct a string that large, so you shouldn&rsquo;t run into
+			that limit.</P>
+			<P>Repetitions such as <TT CLASS="western">*</TT> are <EM>greedy</EM>;
+			when repeating a RE, the matching engine will try to repeat it as
+			many times as possible. If later portions of the pattern don&rsquo;t
+			match, the matching engine will then back up and try again with
+			few repetitions.</P>
+			<P>A step-by-step example will make this more obvious. Let&rsquo;s
+			consider the expression <TT CLASS="western">a[bcd]*b</TT>. This
+			matches the letter <TT CLASS="western">'a'</TT>, zero or more
+			letters from the class <TT CLASS="western">[bcd]</TT>, and finally
+			ends with a <TT CLASS="western">'b'</TT>. Now imagine matching
+			this RE against the string <TT CLASS="western">abcbd</TT>.</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=12>
+				<COL WIDTH=22>
+				<COL WIDTH=66>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Step</P>
+						</TH>
+						<TH>
+							<P>Matched</P>
+						</TH>
+						<TH>
+							<P>Explanation</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>1</P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">a</TT></P>
+						</TD>
+						<TD>
+							<P>The <TT CLASS="western">a</TT> in the RE matches.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>2</P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">abcbd</TT></P>
+						</TD>
+						<TD>
+							<P>The engine matches <TT CLASS="western">[bcd]*</TT>, going
+							as far as it can, which is to the end of the string.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>3</P>
+						</TD>
+						<TD>
+							<P><EM>Failure</EM></P>
+						</TD>
+						<TD>
+							<P>The engine tries to match <TT CLASS="western">b</TT>, but
+							the current position is at the end of the string, so it fails.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>4</P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">abcb</TT></P>
+						</TD>
+						<TD>
+							<P>Back up, so that <TT CLASS="western">[bcd]*</TT> matches
+							one less character.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>5</P>
+						</TD>
+						<TD>
+							<P><EM>Failure</EM></P>
+						</TD>
+						<TD>
+							<P>Try <TT CLASS="western">b</TT> again, but the current
+							position is at the last character, which is a <TT CLASS="western">'d'</TT>.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>6</P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">abc</TT></P>
+						</TD>
+						<TD>
+							<P>Back up again, so that <TT CLASS="western">[bcd]*</TT> is
+							only matching <TT CLASS="western">bc</TT>.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P>6</P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">abcb</TT></P>
+						</TD>
+						<TD>
+							<P>Try <TT CLASS="western">b</TT> again. This time the
+							character at the current position is <TT CLASS="western">'b'</TT>,
+							so it succeeds.</P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+			<P>The end of the RE has now been reached, and it has matched
+			<TT CLASS="western">abcb</TT>. This demonstrates how the matching
+			engine goes as far as it can at first, and if no match is found it
+			will then progressively back up and retry the rest of the RE again
+			and again. It will back up until it has tried zero matches for
+			<TT CLASS="western">[bcd]*</TT>, and if that subsequently fails,
+			the engine will conclude that the string doesn&rsquo;t match the
+			RE at all.</P>
+			<P>Another repeating metacharacter is <TT CLASS="western">+</TT>,
+			which matches one or more times. Pay careful attention to the
+			difference between <TT CLASS="western">*</TT> and <TT CLASS="western">+</TT>;
+			<TT CLASS="western">*</TT> matches <EM>zero</EM> or more times, so
+			whatever&rsquo;s being repeated may not be present at all, while <TT CLASS="western">+</TT>
+			requires at least <EM>one</EM> occurrence. To use a similar
+			example, <TT CLASS="western">ca+t</TT> will match <TT CLASS="western">cat</TT>
+			(1 <TT CLASS="western">a</TT>), <TT CLASS="western">caaat</TT> (3
+			<TT CLASS="western">a</TT>&lsquo;s), but won&rsquo;t match <TT CLASS="western">ct</TT>.</P>
+			<P>There are two more repeating qualifiers. The question mark
+			character, <TT CLASS="western">?</TT>, matches either once or zero
+			times; you can think of it as marking something as being optional.
+			For example, <TT CLASS="western">home-?brew</TT> matches either
+			<TT CLASS="western">homebrew</TT> or <TT CLASS="western">home-brew</TT>.</P>
+			<P>The most complicated repeated qualifier is <TT CLASS="western">{m,n}</TT>,
+			where <EM>m</EM> and <EM>n</EM> are decimal integers. This
+			qualifier means there must be at least <EM>m</EM> repetitions, and
+			at most <EM>n</EM>. For example, <TT CLASS="western">a/{1,3}b</TT>
+			will match <TT CLASS="western">a/b</TT>, <TT CLASS="western">a//b</TT>,
+			and <TT CLASS="western">a///b</TT>. It won&rsquo;t match <TT CLASS="western">ab</TT>,
+			which has no slashes, or <TT CLASS="western">a////b</TT>, which
+			has four.</P>
+			<P>You can omit either <EM>m</EM> or <EM>n</EM>; in that case, a
+			reasonable value is assumed for the missing value. Omitting <EM>m</EM>
+			is interpreted as a lower limit of 0, while omitting <EM>n</EM>
+			results in an upper bound of infinity &mdash; actually, the upper
+			bound is the 2-billion limit mentioned earlier, but that might as
+			well be infinity.</P>
+			<P>Readers of a reductionist bent may notice that the three other
+			qualifiers can all be expressed using this notation. <TT CLASS="western">{0,}</TT>
+			is the same as <TT CLASS="western">*</TT>, <TT CLASS="western">{1,}</TT>
+			is equivalent to <TT CLASS="western">+</TT>, and <TT CLASS="western">{0,1}</TT>
+			is the same as <TT CLASS="western">?</TT>. It&rsquo;s better to
+			use <TT CLASS="western">*</TT>, <TT CLASS="western">+</TT>, or <TT CLASS="western">?</TT>
+			when you can, simply because they&rsquo;re shorter and easier to
+			read.</P>
+		</DIV>
+	</DIV>
+	<DIV ID="using-regular-expressions" DIR="LTR">
+		<H2 CLASS="western">Using Regular Expressions<A HREF="#using-regular-expressions">&para;</A></H2>
+		<P>Now that we&rsquo;ve looked at some simple regular expressions,
+		how do we actually use them in Python? The <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+		module provides an interface to the regular expression engine,
+		allowing you to compile REs into objects and then perform matches
+		with them.</P>
+		<DIV ID="compiling-regular-expressions" DIR="LTR">
+			<H3 CLASS="western">Compiling Regular Expressions<A HREF="#compiling-regular-expressions">&para;</A></H3>
+			<P>Regular expressions are compiled into pattern objects, which
+			have methods for various operations such as searching for pattern
+			matches or performing string substitutions.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; import re
+&gt;&gt;&gt; p = re.compile('ab*')
+&gt;&gt;&gt; p  
+&lt;_sre.SRE_Pattern object at 0x...&gt;</PRE><P>
+			<TT CLASS="western"><A HREF="../library/re.html#re.compile">re.compile()</A></TT>
+			also accepts an optional <EM>flags</EM> argument, used to enable
+			various special features and syntax variations. We&rsquo;ll go
+			over the available settings later, but for now a single example
+			will do:</P>
+			<PRE CLASS="western" STYLE="margin-bottom: 0.2in">&gt;&gt;&gt; p = re.compile('ab*', re.IGNORECASE)</PRE><P>
+			The RE is passed to <TT CLASS="western"><A HREF="../library/re.html#re.compile">re.compile()</A></TT>
+			as a string. REs are handled as strings because regular
+			expressions aren&rsquo;t part of the core Python language, and no
+			special syntax was created for expressing them. (There are
+			applications that don&rsquo;t need REs at all, so there&rsquo;s no
+			need to bloat the language specification by including them.)
+			Instead, the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module is simply a C extension module included with Python, just
+			like the <TT CLASS="western"><A HREF="../library/socket.html#module-socket">socket</A></TT>
+			or <TT CLASS="western"><A HREF="../library/zlib.html#module-zlib">zlib</A></TT>
+			modules.</P>
+			<P>Putting REs in strings keeps the Python language simpler, but
+			has one disadvantage which is the topic of the next section.</P>
+		</DIV>
+		<DIV ID="the-backslash-plague" DIR="LTR">
+			<H3 CLASS="western">The Backslash Plague<A HREF="#the-backslash-plague">&para;</A></H3>
+			<P>As stated earlier, regular expressions use the backslash
+			character (<TT CLASS="western">'\'</TT>) to indicate special forms
+			or to allow special characters to be used without invoking their
+			special meaning. This conflicts with Python&rsquo;s usage of the
+			same character for the same purpose in string literals.</P>
+			<P>Let&rsquo;s say you want to write a RE that matches the string
+			<TT CLASS="western">\section</TT>, which might be found in a LaTeX
+			file. To figure out what to write in the program code, start with
+			the desired string to be matched. Next, you must escape any
+			backslashes and other metacharacters by preceding them with a
+			backslash, resulting in the string <TT CLASS="western">\\section</TT>.
+			The resulting string that must be passed to <TT CLASS="western"><A HREF="../library/re.html#re.compile">re.compile()</A></TT>
+			must be <TT CLASS="western">\\section</TT>. However, to express
+			this as a Python string literal, both backslashes must be escaped
+			<EM>again</EM>.</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=31>
+				<COL WIDTH=69>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Characters</P>
+						</TH>
+						<TH>
+							<P>Stage</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">\section</TT></P>
+						</TD>
+						<TD>
+							<P>Text string to be matched</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">\\section</TT></P>
+						</TD>
+						<TD>
+							<P>Escaped backslash for <TT CLASS="western"><A HREF="../library/re.html#re.compile">re.compile()</A></TT></P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">&quot;\\\\section&quot;</TT></P>
+						</TD>
+						<TD>
+							<P>Escaped backslashes for a string literal</P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+			<P>In short, to match a literal backslash, one has to write <TT CLASS="western">'\\\\'</TT>
+			as the RE string, because the regular expression must be <TT CLASS="western">\\</TT>,
+			and each backslash must be expressed as <TT CLASS="western">\\</TT>
+			inside a regular Python string literal. In REs that feature
+			backslashes repeatedly, this leads to lots of repeated backslashes
+			and makes the resulting strings difficult to understand.</P>
+			<P>The solution is to use Python&rsquo;s raw string notation for
+			regular expressions; backslashes are not handled in any special
+			way in a string literal prefixed with <TT CLASS="western">'r'</TT>,
+			so <TT CLASS="western">r&quot;\n&quot;</TT> is a two-character
+			string containing <TT CLASS="western">'\'</TT> and <TT CLASS="western">'n'</TT>,
+			while <TT CLASS="western">&quot;\n&quot;</TT> is a one-character
+			string containing a newline. Regular expressions will often be
+			written in Python code using this raw string notation.</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=51>
+				<COL WIDTH=49>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Regular String</P>
+						</TH>
+						<TH>
+							<P>Raw string</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">&quot;ab*&quot;</TT></P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">r&quot;ab*&quot;</TT></P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">&quot;\\\\section&quot;</TT></P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">r&quot;\\section&quot;</TT></P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">&quot;\\w+\\s+\\1&quot;</TT></P>
+						</TD>
+						<TD>
+							<P><TT CLASS="western">r&quot;\w+\s+\1&quot;</TT></P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+		</DIV>
+		<DIV ID="performing-matches" DIR="LTR">
+			<H3 CLASS="western">Performing Matches<A HREF="#performing-matches">&para;</A></H3>
+			<P>Once you have an object representing a compiled regular
+			expression, what do you do with it? Pattern objects have several
+			methods and attributes. Only the most significant ones will be
+			covered here; consult the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			docs for a complete listing.</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=28>
+				<COL WIDTH=72>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Method/Attribute</P>
+						</TH>
+						<TH>
+							<P>Purpose</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">match()</TT></P>
+						</TD>
+						<TD>
+							<P>Determine if the RE matches at the beginning of the string.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">search()</TT></P>
+						</TD>
+						<TD>
+							<P>Scan through a string, looking for any location where this
+							RE matches.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">findall()</TT></P>
+						</TD>
+						<TD>
+							<P>Find all substrings where the RE matches, and returns them
+							as a list.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">finditer()</TT></P>
+						</TD>
+						<TD>
+							<P>Find all substrings where the RE matches, and returns them
+							as an <EM><A HREF="../glossary.html#term-iterator">iterator</A></EM>.</P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+			<P><TT CLASS="western">match()</TT> and <TT CLASS="western">search()</TT>
+			return <TT CLASS="western">None</TT> if no match can be found. If
+			they&rsquo;re successful, a <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> instance is returned, containing information about
+			the match: where it starts and ends, the substring it matched, and
+			more.</P>
+			<P>You can learn about this by interactively experimenting with
+			the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module. If you have Tkinter available, you may also want to look
+			at <A HREF="https://hg.python.org/cpython/file/2.7/Tools/scripts/redemo.py">Tools/scripts/redemo.py</A>,
+			a demonstration program included with the Python distribution. It
+			allows you to enter REs and strings, and displays whether the RE
+			matches or fails. <TT CLASS="western">redemo.py</TT> can be quite
+			useful when trying to debug a complicated RE. Phil Schwartz&rsquo;s
+			<A HREF="http://kodos.sourceforge.net/">Kodos</A> is also an
+			interactive tool for developing and testing RE patterns.</P>
+			<P>This HOWTO uses the standard Python interpreter for its
+			examples. First, run the Python interpreter, import the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module, and compile a RE:</P>
+			<PRE CLASS="western">Python 2.2.2 (#1, Feb 10 2003, 12:57:01)
+&gt;&gt;&gt; import re
+&gt;&gt;&gt; p = re.compile('[a-z]+')
+&gt;&gt;&gt; p  #doctest: +ELLIPSIS
+&lt;_sre.SRE_Pattern object at 0x...&gt;</PRE><P>
+			Now, you can try matching various strings against the RE <TT CLASS="western">[a-z]+</TT>.
+			An empty string shouldn&rsquo;t match at all, since <TT CLASS="western">+</TT>
+			means &lsquo;one or more repetitions&rsquo;. <TT CLASS="western">match()</TT>
+			should return <TT CLASS="western">None</TT> in this case, which
+			will cause the interpreter to print no output. You can explicitly
+			print the result of <TT CLASS="western">match()</TT> to make this
+			clear.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p.match(&quot;&quot;)
+&gt;&gt;&gt; print p.match(&quot;&quot;)
+None</PRE><P>
+			Now, let&rsquo;s try it on a string that it should match, such as
+			<TT CLASS="western">tempo</TT>. In this case, <TT CLASS="western">match()</TT>
+			will return a <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM>, so you should store the result in a variable for
+			later use.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; m = p.match('tempo')
+&gt;&gt;&gt; m  
+&lt;_sre.SRE_Match object at 0x...&gt;</PRE><P>
+			Now you can query the <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> for information about the matching string. <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> instances also have several methods and
+			attributes; the most important ones are:</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=29>
+				<COL WIDTH=71>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Method/Attribute</P>
+						</TH>
+						<TH>
+							<P>Purpose</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">group()</TT></P>
+						</TD>
+						<TD>
+							<P>Return the string matched by the RE</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">start()</TT></P>
+						</TD>
+						<TD>
+							<P>Return the starting position of the match</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">end()</TT></P>
+						</TD>
+						<TD>
+							<P>Return the ending position of the match</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">span()</TT></P>
+						</TD>
+						<TD>
+							<P>Return a tuple containing the (start, end) positions of the
+							match</P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+			<P>Trying these methods will soon clarify their meaning:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; m.group()
+'tempo'
+&gt;&gt;&gt; m.start(), m.end()
+(0, 5)
+&gt;&gt;&gt; m.span()
+(0, 5)</PRE><P>
+			<TT CLASS="western">group()</TT> returns the substring that was
+			matched by the RE. <TT CLASS="western">start()</TT> and <TT CLASS="western">end()</TT>
+			return the starting and ending index of the match. <TT CLASS="western">span()</TT>
+			returns both start and end indexes in a single tuple. Since the
+			<TT CLASS="western">match()</TT> method only checks if the RE
+			matches at the start of a string, <TT CLASS="western">start()</TT>
+			will always be zero. However, the <TT CLASS="western">search()</TT>
+			method of patterns scans through the string, so the match may not
+			start at zero in that case.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; print p.match('::: message')
+None
+&gt;&gt;&gt; m = p.search('::: message'); print m  
+&lt;_sre.SRE_Match object at 0x...&gt;
+&gt;&gt;&gt; m.group()
+'message'
+&gt;&gt;&gt; m.span()
+(4, 11)</PRE><P>
+			In actual programs, the most common style is to store the <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> in a variable, and then check if it was <TT CLASS="western">None</TT>.
+			This usually looks like:</P>
+			<PRE CLASS="western">p = re.compile( ... )
+m = p.match( 'string goes here' )
+if m:
+    print 'Match found: ', m.group()
+else:
+    print 'No match'</PRE><P>
+			Two pattern methods return all of the matches for a pattern.
+			<TT CLASS="western">findall()</TT> returns a list of matching
+			strings:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('\d+')
+&gt;&gt;&gt; p.findall('12 drummers drumming, 11 pipers piping, 10 lords a-leaping')
+['12', '11', '10']</PRE><P>
+			<A NAME="id1"></A><TT CLASS="western">findall()</TT> has to create
+			the entire list before it can be returned as the result. The
+			<TT CLASS="western">finditer()</TT> method returns a sequence of
+			<EM><A HREF="../library/re.html#match-objects">match object</A></EM>
+			instances as an <EM><A HREF="../glossary.html#term-iterator">iterator</A></EM>.
+			<A HREF="#id3">[1]</A></P>
+			<PRE CLASS="western">&gt;&gt;&gt; iterator = p.finditer('12 drummers drumming, 11 ... 10 ...')
+&gt;&gt;&gt; iterator  
+&lt;callable-iterator object at 0x...&gt;
+&gt;&gt;&gt; for match in iterator:
+...     print match.span()
+...
+(0, 2)
+(22, 24)
+(29, 31)</PRE>
+		</DIV>
+		<DIV ID="module-level-functions" DIR="LTR">
+			<H3 CLASS="western">Module-Level Functions<A HREF="#module-level-functions">&para;</A></H3>
+			<P>You don&rsquo;t have to create a pattern object and call its
+			methods; the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module also provides top-level functions called <TT CLASS="western">match()</TT>,
+			<TT CLASS="western">search()</TT>, <TT CLASS="western">findall()</TT>,
+			<TT CLASS="western">sub()</TT>, and so forth. These functions take
+			the same arguments as the corresponding pattern method, with the
+			RE string added as the first argument, and still return either
+			<TT CLASS="western">None</TT> or a <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> instance.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; print re.match(r'From\s+', 'Fromage amk')
+None
+&gt;&gt;&gt; re.match(r'From\s+', 'From amk Thu May 14 19:12:10 1998')  
+&lt;_sre.SRE_Match object at 0x...&gt;</PRE><P>
+			Under the hood, these functions simply create a pattern object for
+			you and call the appropriate method on it. They also store the
+			compiled object in a cache, so future calls using the same RE are
+			faster.</P>
+			<P>Should you use these module-level functions, or should you get
+			the pattern and call its methods yourself? That choice depends on
+			how frequently the RE will be used, and on your personal coding
+			style. If the RE is being used at only one point in the code, then
+			the module functions are probably more convenient. If a program
+			contains a lot of regular expressions, or re-uses the same ones in
+			several locations, then it might be worthwhile to collect all the
+			definitions in one place, in a section of code that compiles all
+			the REs ahead of time. To take an example from the standard
+			library, here&rsquo;s an extract from the deprecated <TT CLASS="western">xmllib</TT>
+			module:</P>
+			<PRE CLASS="western">ref = re.compile( ... )
+entityref = re.compile( ... )
+charref = re.compile( ... )
+starttagopen = re.compile( ... )</PRE><P>
+			I generally prefer to work with the compiled object, even for
+			one-time uses, but few people will be as much of a purist about
+			this as I am.</P>
+		</DIV>
+		<DIV ID="compilation-flags" DIR="LTR">
+			<H3 CLASS="western">Compilation Flags<A HREF="#compilation-flags">&para;</A></H3>
+			<P>Compilation flags let you modify some aspects of how regular
+			expressions work. Flags are available in the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module under two names, a long name such as <TT CLASS="western">IGNORECASE</TT>
+			and a short, one-letter form such as <TT CLASS="western">I</TT>.
+			(If you&rsquo;re familiar with Perl&rsquo;s pattern modifiers, the
+			one-letter forms use the same letters; the short form of
+			<TT CLASS="western"><A HREF="../library/re.html#re.VERBOSE">re.VERBOSE</A></TT>
+			is <TT CLASS="western"><A HREF="../library/re.html#re.X">re.X</A></TT>,
+			for example.) Multiple flags can be specified by bitwise OR-ing
+			them; <TT CLASS="western">re.I | re.M</TT> sets both the <TT CLASS="western">I</TT>
+			and <TT CLASS="western">M</TT> flags, for example.</P>
+			<P>Here&rsquo;s a table of the available flags, followed by a more
+			detailed explanation of each one.</P>
+			<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+				<COL WIDTH=43>
+				<COL WIDTH=57>
+				<THEAD>
+					<TR VALIGN=BOTTOM>
+						<TH>
+							<P>Flag</P>
+						</TH>
+						<TH>
+							<P>Meaning</P>
+						</TH>
+					</TR>
+				</THEAD>
+				<TBODY>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">DOTALL</TT>, <TT CLASS="western">S</TT></P>
+						</TD>
+						<TD>
+							<P>Make <TT CLASS="western">.</TT> match any character,
+							including newlines</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">IGNORECASE</TT>, <TT CLASS="western">I</TT></P>
+						</TD>
+						<TD>
+							<P>Do case-insensitive matches</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">LOCALE</TT>, <TT CLASS="western">L</TT></P>
+						</TD>
+						<TD>
+							<P>Do a locale-aware match</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">MULTILINE</TT>, <TT CLASS="western">M</TT></P>
+						</TD>
+						<TD>
+							<P>Multi-line matching, affecting <TT CLASS="western">^</TT>
+							and <TT CLASS="western">$</TT></P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">VERBOSE</TT>, <TT CLASS="western">X</TT></P>
+						</TD>
+						<TD>
+							<P>Enable verbose REs, which can be organized more cleanly and
+							understandably.</P>
+						</TD>
+					</TR>
+					<TR VALIGN=TOP>
+						<TD>
+							<P><TT CLASS="western">UNICODE</TT>, <TT CLASS="western">U</TT></P>
+						</TD>
+						<TD>
+							<P>Makes several escapes like <TT CLASS="western">\w</TT>, <TT CLASS="western">\b</TT>,
+							<TT CLASS="western">\s</TT> and <TT CLASS="western">\d</TT>
+							dependent on the Unicode character database.</P>
+						</TD>
+					</TR>
+				</TBODY>
+			</TABLE>
+			<DL>
+				<DT><TT CLASS="western">I</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">IGNORECASE</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Perform case-insensitive matching; character class and literal
+				strings will match letters by ignoring case. For example, <TT CLASS="western">[A-Z]</TT>
+				will match lowercase letters, too, and <TT CLASS="western">Spam</TT>
+				will match <TT CLASS="western">Spam</TT>, <TT CLASS="western">spam</TT>,
+				or <TT CLASS="western">spAM</TT>. This lowercasing doesn&rsquo;t
+				take the current locale into account; it will if you also set the
+				<TT CLASS="western">LOCALE</TT> flag.</DD><DT>
+				<TT CLASS="western">L</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">LOCALE</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Make <TT CLASS="western">\w</TT>, <TT CLASS="western">\W</TT>,
+				<TT CLASS="western">\b</TT>, and <TT CLASS="western">\B</TT>,
+				dependent on the current locale.</DD><DD STYLE="margin-bottom: 0.2in">
+				Locales are a feature of the C library intended to help in
+				writing programs that take account of language differences. For
+				example, if you&rsquo;re processing French text, you&rsquo;d want
+				to be able to write <TT CLASS="western">\w+</TT> to match words,
+				but <TT CLASS="western">\w</TT> only matches the character class
+				<TT CLASS="western">[A-Za-z]</TT>; it won&rsquo;t match <TT CLASS="western">'&eacute;'</TT>
+				or <TT CLASS="western">'&ccedil;'</TT>. If your system is
+				configured properly and a French locale is selected, certain C
+				functions will tell the program that <TT CLASS="western">'&eacute;'</TT>
+				should also be considered a letter. Setting the <TT CLASS="western">LOCALE</TT>
+				flag when compiling a regular expression will cause the resulting
+				compiled object to use these C functions for <TT CLASS="western">\w</TT>;
+				this is slower, but also enables <TT CLASS="western">\w+</TT> to
+				match French words as you&rsquo;d expect.</DD><DT>
+				<TT CLASS="western">M</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">MULTILINE</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				(<TT CLASS="western">^</TT> and <TT CLASS="western">$</TT>
+				haven&rsquo;t been explained yet; they&rsquo;ll be introduced in
+				section <EM><A HREF="#more-metacharacters">More Metacharacters</A></EM>.)</DD><DD STYLE="margin-bottom: 0.2in">
+				Usually <TT CLASS="western">^</TT> matches only at the beginning
+				of the string, and <TT CLASS="western">$</TT> matches only at the
+				end of the string and immediately before the newline (if any) at
+				the end of the string. When this flag is specified, <TT CLASS="western">^</TT>
+				matches at the beginning of the string and at the beginning of
+				each line within the string, immediately following each newline.
+				Similarly, the <TT CLASS="western">$</TT> metacharacter matches
+				either at the end of the string and at the end of each line
+				(immediately preceding each newline).</DD><DT>
+				<TT CLASS="western">S</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">DOTALL</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Makes the <TT CLASS="western">'.'</TT> special character match
+				any character at all, including a newline; without this flag, <TT CLASS="western">'.'</TT>
+				will match anything <EM>except</EM> a newline.</DD><DT>
+				<TT CLASS="western">U</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">UNICODE</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Make <TT CLASS="western">\w</TT>, <TT CLASS="western">\W</TT>,
+				<TT CLASS="western">\b</TT>, <TT CLASS="western">\B</TT>, <TT CLASS="western">\d</TT>,
+				<TT CLASS="western">\D</TT>, <TT CLASS="western">\s</TT> and <TT CLASS="western">\S</TT>
+				dependent on the Unicode character properties database.</DD><DT>
+				<TT CLASS="western">X</TT> 
+				</DT><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">VERBOSE</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				This flag allows you to write regular expressions that are more
+				readable by granting you more flexibility in how you can format
+				them. When this flag has been specified, whitespace within the RE
+				string is ignored, except when the whitespace is in a character
+				class or preceded by an unescaped backslash; this lets you
+				organize and indent the RE more clearly. This flag also lets you
+				put comments within a RE that will be ignored by the engine;
+				comments are marked by a <TT CLASS="western">'#'</TT> that&rsquo;s
+				neither in a character class or preceded by an unescaped
+				backslash.</DD><DD STYLE="margin-bottom: 0.2in">
+				For example, here&rsquo;s a RE that uses <TT CLASS="western"><A HREF="../library/re.html#re.VERBOSE">re.VERBOSE</A></TT>;
+				see how much easier it is to read?</DD></DL>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">charref = re.compile(r&quot;&quot;&quot;
+ &amp;[#]                # Start of a numeric entity reference
+ (
+     0[0-7]+         # Octal form
+   | [0-9]+          # Decimal form
+   | x[0-9a-fA-F]+   # Hexadecimal form
+ )
+ ;                   # Trailing semicolon
+&quot;&quot;&quot;, re.VERBOSE)</PRE>
+			<DL>
+				<DD STYLE="margin-bottom: 0.2in">
+				Without the verbose setting, the RE would look like this:</DD></DL>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">charref = re.compile(&quot;&amp;#(0[0-7]+&quot;
+                     &quot;|[0-9]+&quot;
+                     &quot;|x[0-9a-fA-F]+);&quot;)</PRE>
+			<DL>
+				<DD STYLE="margin-bottom: 0.2in">
+				In the above example, Python&rsquo;s automatic concatenation of
+				string literals has been used to break up the RE into smaller
+				pieces, but it&rsquo;s still more difficult to understand than
+				the version using <TT CLASS="western"><A HREF="../library/re.html#re.VERBOSE">re.VERBOSE</A></TT>.</DD></DL>
+		</DIV>
+	</DIV>
+	<DIV ID="more-pattern-power" DIR="LTR">
+		<H2 CLASS="western">More Pattern Power<A HREF="#more-pattern-power">&para;</A></H2>
+		<P>So far we&rsquo;ve only covered a part of the features of
+		regular expressions. In this section, we&rsquo;ll cover some new
+		metacharacters, and how to use groups to retrieve portions of the
+		text that was matched.</P>
+		<DIV ID="more-metacharacters" DIR="LTR">
+			<H3 CLASS="western"><A NAME="id2"></A>More Metacharacters<A HREF="#more-metacharacters">&para;</A></H3>
+			<P>There are some metacharacters that we haven&rsquo;t covered
+			yet. Most of them will be covered in this section.</P>
+			<P>Some of the remaining metacharacters to be discussed are
+			<EM>zero-width assertions</EM>. They don&rsquo;t cause the engine
+			to advance through the string; instead, they consume no characters
+			at all, and simply succeed or fail. For example, <TT CLASS="western">\b</TT>
+			is an assertion that the current position is located at a word
+			boundary; the position isn&rsquo;t changed by the <TT CLASS="western">\b</TT>
+			at all. This means that zero-width assertions should never be
+			repeated, because if they match once at a given location, they can
+			obviously be matched an infinite number of times.</P>
+			<DL>
+				<DT STYLE="margin-bottom: 0.2in"><TT CLASS="western">|</TT> 
+				</DT></DL>
+			<P STYLE="margin-left: 0.39in">
+			Alternation, or the &ldquo;or&rdquo; operator. If A and B are
+			regular expressions, <TT CLASS="western">A|B</TT> will match any
+			string that matches either <TT CLASS="western">A</TT> or <TT CLASS="western">B</TT>.
+			<TT CLASS="western">|</TT> has very low precedence in order to
+			make it work reasonably when you&rsquo;re alternating
+			multi-character strings. <TT CLASS="western">Crow|Servo</TT> will
+			match either <TT CLASS="western">Crow</TT> or <TT CLASS="western">Servo</TT>,
+			not <TT CLASS="western">Cro</TT>, a <TT CLASS="western">'w'</TT>
+			or an <TT CLASS="western">'S'</TT>, and <TT CLASS="western">ervo</TT>.</P>
+			<P STYLE="margin-left: 0.39in">To match a literal <TT CLASS="western">'|'</TT>,
+			use <TT CLASS="western">\|</TT>, or enclose it inside a character
+			class, as in <TT CLASS="western">[|]</TT>.</P>
+			<DL>
+				<DT STYLE="margin-bottom: 0.2in"><TT CLASS="western">^</TT> 
+				</DT></DL>
+			<P STYLE="margin-left: 0.39in">
+			Matches at the beginning of lines. Unless the <TT CLASS="western">MULTILINE</TT>
+			flag has been set, this will only match at the beginning of the
+			string. In <TT CLASS="western">MULTILINE</TT> mode, this also
+			matches immediately after each newline within the string.</P>
+			<DL>
+				<DD STYLE="margin-bottom: 0.2in">For example, if you wish to
+				match the word <TT CLASS="western">From</TT> only at the
+				beginning of a line, the RE to use is <TT CLASS="western">^From</TT>.</DD></DL>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">&gt;&gt;&gt; print re.search('^From', 'From Here to Eternity')  
+&lt;_sre.SRE_Match object at 0x...&gt;
+&gt;&gt;&gt; print re.search('^From', 'Reciting From Memory')
+None</PRE>
+			<DL>
+				<DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">$</TT> 
+				</DT></DL>
+			<P STYLE="margin-left: 0.39in">
+			Matches at the end of a line, which is defined as either the end
+			of the string, or any location followed by a newline character.</P>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">&gt;&gt;&gt; print re.search('}$', '{block}')  
+&lt;_sre.SRE_Match object at 0x...&gt;
+&gt;&gt;&gt; print re.search('}$', '{block} ')
+None
+&gt;&gt;&gt; print re.search('}$', '{block}\n')  
+&lt;_sre.SRE_Match object at 0x...&gt;</PRE><P STYLE="margin-left: 0.39in">
+			To match a literal <TT CLASS="western">'$'</TT>, use <TT CLASS="western">\$</TT>
+			or enclose it inside a character class, as in <TT CLASS="western">[$]</TT>.</P>
+			<DL>
+				<DT><TT CLASS="western">\A</TT> 
+				</DT><DD>
+				Matches only at the start of the string. When not in <TT CLASS="western">MULTILINE</TT>
+				mode, <TT CLASS="western">\A</TT> and <TT CLASS="western">^</TT>
+				are effectively the same. In <TT CLASS="western">MULTILINE</TT>
+				mode, they&rsquo;re different: <TT CLASS="western">\A</TT> still
+				matches only at the beginning of the string, but <TT CLASS="western">^</TT>
+				may match at any location inside the string that follows a
+				newline character. 
+				</DD><DT>
+				<TT CLASS="western">\Z</TT> 
+				</DT><DD>
+				Matches only at the end of the string. 
+				</DD><DT STYLE="margin-bottom: 0.2in">
+				<TT CLASS="western">\b</TT> 
+				</DT></DL>
+			<P STYLE="margin-left: 0.39in">
+			Word boundary. This is a zero-width assertion that matches only at
+			the beginning or end of a word. A word is defined as a sequence of
+			alphanumeric characters, so the end of a word is indicated by
+			whitespace or a non-alphanumeric character.</P>
+			<DL>
+				<DD STYLE="margin-bottom: 0.2in">The following example matches
+				<TT CLASS="western">class</TT> only when it&rsquo;s a complete
+				word; it won&rsquo;t match when it&rsquo;s contained inside
+				another word.</DD></DL>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">&gt;&gt;&gt; p = re.compile(r'\bclass\b')
+&gt;&gt;&gt; print p.search('no class at all')  
+&lt;_sre.SRE_Match object at 0x...&gt;
+&gt;&gt;&gt; print p.search('the declassified algorithm')
+None
+&gt;&gt;&gt; print p.search('one subclass is')
+None</PRE>
+			<DL>
+				<DD STYLE="margin-bottom: 0.2in">
+				There are two subtleties you should remember when using this
+				special sequence. First, this is the worst collision between
+				Python&rsquo;s string literals and regular expression sequences.
+				In Python&rsquo;s string literals, <TT CLASS="western">\b</TT> is
+				the backspace character, ASCII value 8. If you&rsquo;re not using
+				raw strings, then Python will convert the <TT CLASS="western">\b</TT>
+				to a backspace, and your RE won&rsquo;t match as you expect it
+				to. The following example looks the same as our previous RE, but
+				omits the <TT CLASS="western">'r'</TT> in front of the RE string.</DD></DL>
+			<PRE CLASS="western" STYLE="margin-left: 0.39in">&gt;&gt;&gt; p = re.compile('\bclass\b')
+&gt;&gt;&gt; print p.search('no class at all')
+None
+&gt;&gt;&gt; print p.search('\b' + 'class' + '\b')  
+&lt;_sre.SRE_Match object at 0x...&gt;</PRE><P STYLE="margin-left: 0.39in">
+			Second, inside a character class, where there&rsquo;s no use for
+			this assertion, <TT CLASS="western">\b</TT> represents the
+			backspace character, for compatibility with Python&rsquo;s string
+			literals.</P>
+			<DL>
+				<DT><TT CLASS="western">\B</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Another zero-width assertion, this is the opposite of <TT CLASS="western">\b</TT>,
+				only matching when the current position is not at a word
+				boundary. 
+				</DD></DL>
+		</DIV>
+		<DIV ID="grouping" DIR="LTR">
+			<H3 CLASS="western">Grouping<A HREF="#grouping">&para;</A></H3>
+			<P>Frequently you need to obtain more information than just
+			whether the RE matched or not. Regular expressions are often used
+			to dissect strings by writing a RE divided into several subgroups
+			which match different components of interest. For example, an
+			RFC-822 header line is divided into a header name and a value,
+			separated by a <TT CLASS="western">':'</TT>, like this:</P>
+			<PRE CLASS="western">From: author@example.com
+User-Agent: Thunderbird 1.5.0.9 (X11/20061227)
+MIME-Version: 1.0
+To: editor@example.com</PRE><P>
+			This can be handled by writing a regular expression which matches
+			an entire header line, and has one group which matches the header
+			name, and another group which matches the header&rsquo;s value.</P>
+			<P>Groups are marked by the <TT CLASS="western">'('</TT>, <TT CLASS="western">')'</TT>
+			metacharacters. <TT CLASS="western">'('</TT> and <TT CLASS="western">')'</TT>
+			have much the same meaning as they do in mathematical expressions;
+			they group together the expressions contained inside them, and you
+			can repeat the contents of a group with a repeating qualifier,
+			such as <TT CLASS="western">*</TT>, <TT CLASS="western">+</TT>, <TT CLASS="western">?</TT>,
+			or <TT CLASS="western">{m,n}</TT>. For example, <TT CLASS="western">(ab)*</TT>
+			will match zero or more repetitions of <TT CLASS="western">ab</TT>.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('(ab)*')
+&gt;&gt;&gt; print p.match('ababababab').span()
+(0, 10)</PRE><P>
+			Groups indicated with <TT CLASS="western">'('</TT>, <TT CLASS="western">')'</TT>
+			also capture the starting and ending index of the text that they
+			match; this can be retrieved by passing an argument to <TT CLASS="western">group()</TT>,
+			<TT CLASS="western">start()</TT>, <TT CLASS="western">end()</TT>,
+			and <TT CLASS="western">span()</TT>. Groups are numbered starting
+			with 0. Group 0 is always present; it&rsquo;s the whole RE, so
+			<EM><A HREF="../library/re.html#match-objects">match object</A></EM>
+			methods all have group 0 as their default argument. Later we&rsquo;ll
+			see how to express groups that don&rsquo;t capture the span of
+			text that they match.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('(a)b')
+&gt;&gt;&gt; m = p.match('ab')
+&gt;&gt;&gt; m.group()
+'ab'
+&gt;&gt;&gt; m.group(0)
+'ab'</PRE><P>
+			Subgroups are numbered from left to right, from 1 upward. Groups
+			can be nested; to determine the number, just count the opening
+			parenthesis characters, going from left to right.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('(a(b)c)d')
+&gt;&gt;&gt; m = p.match('abcd')
+&gt;&gt;&gt; m.group(0)
+'abcd'
+&gt;&gt;&gt; m.group(1)
+'abc'
+&gt;&gt;&gt; m.group(2)
+'b'</PRE><P>
+			<TT CLASS="western">group()</TT> can be passed multiple group
+			numbers at a time, in which case it will return a tuple containing
+			the corresponding values for those groups.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; m.group(2,1,2)
+('b', 'abc', 'b')</PRE><P>
+			The <TT CLASS="western">groups()</TT> method returns a tuple
+			containing the strings for all the subgroups, from 1 up to however
+			many there are.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; m.groups()
+('abc', 'b')</PRE><P>
+			Backreferences in a pattern allow you to specify that the contents
+			of an earlier capturing group must also be found at the current
+			location in the string. For example, <TT CLASS="western">\1</TT>
+			will succeed if the exact contents of group 1 can be found at the
+			current position, and fails otherwise. Remember that Python&rsquo;s
+			string literals also use a backslash followed by numbers to allow
+			including arbitrary characters in a string, so be sure to use a
+			raw string when incorporating backreferences in a RE.</P>
+			<P>For example, the following RE detects doubled words in a
+			string.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile(r'(\b\w+)\s+\1')
+&gt;&gt;&gt; p.search('Paris in the the spring').group()
+'the the'</PRE><P>
+			Backreferences like this aren&rsquo;t often useful for just
+			searching through a string &mdash; there are few text formats
+			which repeat data in this way &mdash; but you&rsquo;ll soon find
+			out that they&rsquo;re <EM>very</EM> useful when performing string
+			substitutions.</P>
+		</DIV>
+		<DIV ID="non-capturing-and-named-groups" DIR="LTR">
+			<H3 CLASS="western">Non-capturing and Named Groups<A HREF="#non-capturing-and-named-groups">&para;</A></H3>
+			<P>Elaborate REs may use many groups, both to capture substrings
+			of interest, and to group and structure the RE itself. In complex
+			REs, it becomes difficult to keep track of the group numbers.
+			There are two features which help with this problem. Both of them
+			use a common syntax for regular expression extensions, so we&rsquo;ll
+			look at that first.</P>
+			<P>Perl 5 added several additional features to standard regular
+			expressions, and the Python <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module supports most of them. It would have been difficult to
+			choose new single-keystroke metacharacters or new special
+			sequences beginning with <TT CLASS="western">\</TT> to represent
+			the new features without making Perl&rsquo;s regular expressions
+			confusingly different from standard REs. If you chose <TT CLASS="western">&amp;</TT>
+			as a new metacharacter, for example, old expressions would be
+			assuming that <TT CLASS="western">&amp;</TT> was a regular
+			character and wouldn&rsquo;t have escaped it by writing <TT CLASS="western">\&amp;</TT>
+			or <TT CLASS="western">[&amp;]</TT>.</P>
+			<P>The solution chosen by the Perl developers was to use <TT CLASS="western">(?...)</TT>
+			as the extension syntax. <TT CLASS="western">?</TT> immediately
+			after a parenthesis was a syntax error because the <TT CLASS="western">?</TT>
+			would have nothing to repeat, so this didn&rsquo;t introduce any
+			compatibility problems. The characters immediately after the <TT CLASS="western">?</TT>
+			indicate what extension is being used, so <TT CLASS="western">(?=foo)</TT>
+			is one thing (a positive lookahead assertion) and <TT CLASS="western">(?:foo)</TT>
+			is something else (a non-capturing group containing the
+			subexpression <TT CLASS="western">foo</TT>).</P>
+			<P>Python adds an extension syntax to Perl&rsquo;s extension
+			syntax. If the first character after the question mark is a <TT CLASS="western">P</TT>,
+			you know that it&rsquo;s an extension that&rsquo;s specific to
+			Python. Currently there are two such extensions: <TT CLASS="western">(?P&lt;name&gt;...)</TT>
+			defines a named group, and <TT CLASS="western">(?P=name)</TT> is a
+			backreference to a named group. If future versions of Perl 5 add
+			similar features using a different syntax, the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module will be changed to support the new syntax, while preserving
+			the Python-specific syntax for compatibility&rsquo;s sake.</P>
+			<P>Now that we&rsquo;ve looked at the general extension syntax, we
+			can return to the features that simplify working with groups in
+			complex REs. Since groups are numbered from left to right and a
+			complex expression may use many groups, it can become difficult to
+			keep track of the correct numbering. Modifying such a complex RE
+			is annoying, too: insert a new group near the beginning and you
+			change the numbers of everything that follows it.</P>
+			<P>Sometimes you&rsquo;ll want to use a group to collect a part of
+			a regular expression, but aren&rsquo;t interested in retrieving
+			the group&rsquo;s contents. You can make this fact explicit by
+			using a non-capturing group: <TT CLASS="western">(?:...)</TT>,
+			where you can replace the <TT CLASS="western">...</TT> with any
+			other regular expression.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; m = re.match(&quot;([abc])+&quot;, &quot;abc&quot;)
+&gt;&gt;&gt; m.groups()
+('c',)
+&gt;&gt;&gt; m = re.match(&quot;(?:[abc])+&quot;, &quot;abc&quot;)
+&gt;&gt;&gt; m.groups()
+()</PRE><P>
+			Except for the fact that you can&rsquo;t retrieve the contents of
+			what the group matched, a non-capturing group behaves exactly the
+			same as a capturing group; you can put anything inside it, repeat
+			it with a repetition metacharacter such as <TT CLASS="western">*</TT>,
+			and nest it within other groups (capturing or non-capturing).
+			<TT CLASS="western">(?:...)</TT> is particularly useful when
+			modifying an existing pattern, since you can add new groups
+			without changing how all the other groups are numbered. It should
+			be mentioned that there&rsquo;s no performance difference in
+			searching between capturing and non-capturing groups; neither form
+			is any faster than the other.</P>
+			<P>A more significant feature is named groups: instead of
+			referring to them by numbers, groups can be referenced by a name.</P>
+			<P>The syntax for a named group is one of the Python-specific
+			extensions: <TT CLASS="western">(?P&lt;name&gt;...)</TT>. <EM>name</EM>
+			is, obviously, the name of the group. Named groups also behave
+			exactly like capturing groups, and additionally associate a name
+			with a group. The <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> methods that deal with capturing groups all accept
+			either integers that refer to the group by number or strings that
+			contain the desired group&rsquo;s name. Named groups are still
+			given numbers, so you can retrieve information about a group in
+			two ways:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile(r'(?P&lt;word&gt;\b\w+\b)')
+&gt;&gt;&gt; m = p.search( '(((( Lots of punctuation )))' )
+&gt;&gt;&gt; m.group('word')
+'Lots'
+&gt;&gt;&gt; m.group(1)
+'Lots'</PRE><P>
+			Named groups are handy because they let you use easily-remembered
+			names, instead of having to remember numbers. Here&rsquo;s an
+			example RE from the <TT CLASS="western"><A HREF="../library/imaplib.html#module-imaplib">imaplib</A></TT>
+			module:</P>
+			<PRE CLASS="western">InternalDate = re.compile(r'INTERNALDATE &quot;'
+        r'(?P&lt;day&gt;[ 123][0-9])-(?P&lt;mon&gt;[A-Z][a-z][a-z])-'
+        r'(?P&lt;year&gt;[0-9][0-9][0-9][0-9])'
+        r' (?P&lt;hour&gt;[0-9][0-9]):(?P&lt;min&gt;[0-9][0-9]):(?P&lt;sec&gt;[0-9][0-9])'
+        r' (?P&lt;zonen&gt;[-+])(?P&lt;zoneh&gt;[0-9][0-9])(?P&lt;zonem&gt;[0-9][0-9])'
+        r'&quot;')</PRE><P>
+			It&rsquo;s obviously much easier to retrieve <TT CLASS="western">m.group('zonem')</TT>,
+			instead of having to remember to retrieve group 9.</P>
+			<P>The syntax for backreferences in an expression such as <TT CLASS="western">(...)\1</TT>
+			refers to the number of the group. There&rsquo;s naturally a
+			variant that uses the group name instead of the number. This is
+			another Python extension: <TT CLASS="western">(?P=name)</TT>
+			indicates that the contents of the group called <EM>name</EM>
+			should again be matched at the current point. The regular
+			expression for finding doubled words, <TT CLASS="western">(\b\w+)\s+\1</TT>
+			can also be written as <TT CLASS="western">(?P&lt;word&gt;\b\w+)\s+(?P=word)</TT>:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile(r'(?P&lt;word&gt;\b\w+)\s+(?P=word)')
+&gt;&gt;&gt; p.search('Paris in the the spring').group()
+'the the'</PRE>
+		</DIV>
+		<DIV ID="lookahead-assertions" DIR="LTR">
+			<H3 CLASS="western">Lookahead Assertions<A HREF="#lookahead-assertions">&para;</A></H3>
+			<P>Another zero-width assertion is the lookahead assertion.
+			Lookahead assertions are available in both positive and negative
+			form, and look like this:</P>
+			<DL>
+				<DT><TT CLASS="western">(?=...)</TT> 
+				</DT><DD>
+				Positive lookahead assertion. This succeeds if the contained
+				regular expression, represented here by <TT CLASS="western">...</TT>,
+				successfully matches at the current location, and fails
+				otherwise. But, once the contained expression has been tried, the
+				matching engine doesn&rsquo;t advance at all; the rest of the
+				pattern is tried right where the assertion started. 
+				</DD><DT>
+				<TT CLASS="western">(?!...)</TT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Negative lookahead assertion. This is the opposite of the
+				positive assertion; it succeeds if the contained expression
+				<EM>doesn&rsquo;t</EM> match at the current position in the
+				string. 
+				</DD></DL>
+			<P>
+			To make this concrete, let&rsquo;s look at a case where a
+			lookahead is useful. Consider a simple pattern to match a filename
+			and split it apart into a base name and an extension, separated by
+			a <TT CLASS="western">.</TT>. For example, in <TT CLASS="western">news.rc</TT>,
+			<TT CLASS="western">news</TT> is the base name, and <TT CLASS="western">rc</TT>
+			is the filename&rsquo;s extension.</P>
+			<P>The pattern to match this is quite simple:</P>
+			<P><TT CLASS="western">.*[.].*$</TT></P>
+			<P>Notice that the <TT CLASS="western">.</TT> needs to be treated
+			specially because it&rsquo;s a metacharacter; I&rsquo;ve put it
+			inside a character class. Also notice the trailing <TT CLASS="western">$</TT>;
+			this is added to ensure that all the rest of the string must be
+			included in the extension. This regular expression matches <TT CLASS="western">foo.bar</TT>
+			and <TT CLASS="western">autoexec.bat</TT> and <TT CLASS="western">sendmail.cf</TT>
+			and <TT CLASS="western">printers.conf</TT>.</P>
+			<P>Now, consider complicating the problem a bit; what if you want
+			to match filenames where the extension is not <TT CLASS="western">bat</TT>?
+			Some incorrect attempts:</P>
+			<P><TT CLASS="western">.*[.][^b].*$</TT> The first attempt above
+			tries to exclude <TT CLASS="western">bat</TT> by requiring that
+			the first character of the extension is not a <TT CLASS="western">b</TT>.
+			This is wrong, because the pattern also doesn&rsquo;t match
+			<TT CLASS="western">foo.bar</TT>.</P>
+			<P><TT CLASS="western">.*[.]([^b]..|.[^a].|..[^t])$</TT></P>
+			<P>The expression gets messier when you try to patch up the first
+			solution by requiring one of the following cases to match: the
+			first character of the extension isn&rsquo;t <TT CLASS="western">b</TT>;
+			the second character isn&rsquo;t <TT CLASS="western">a</TT>; or
+			the third character isn&rsquo;t <TT CLASS="western">t</TT>. This
+			accepts <TT CLASS="western">foo.bar</TT> and rejects <TT CLASS="western">autoexec.bat</TT>,
+			but it requires a three-letter extension and won&rsquo;t accept a
+			filename with a two-letter extension such as <TT CLASS="western">sendmail.cf</TT>.
+			We&rsquo;ll complicate the pattern again in an effort to fix it.</P>
+			<P><TT CLASS="western">.*[.]([^b].?.?|.[^a]?.?|..?[^t]?)$</TT></P>
+			<P>In the third attempt, the second and third letters are all made
+			optional in order to allow matching extensions shorter than three
+			characters, such as <TT CLASS="western">sendmail.cf</TT>.</P>
+			<P>The pattern&rsquo;s getting really complicated now, which makes
+			it hard to read and understand. Worse, if the problem changes and
+			you want to exclude both <TT CLASS="western">bat</TT> and <TT CLASS="western">exe</TT>
+			as extensions, the pattern would get even more complicated and
+			confusing.</P>
+			<P>A negative lookahead cuts through all this confusion:</P>
+			<P><TT CLASS="western">.*[.](?!bat$).*$</TT> The negative
+			lookahead means: if the expression <TT CLASS="western">bat</TT>
+			doesn&rsquo;t match at this point, try the rest of the pattern; if
+			<TT CLASS="western">bat$</TT> does match, the whole pattern will
+			fail. The trailing <TT CLASS="western">$</TT> is required to
+			ensure that something like <TT CLASS="western">sample.batch</TT>,
+			where the extension only starts with <TT CLASS="western">bat</TT>,
+			will be allowed.</P>
+			<P>Excluding another filename extension is now easy; simply add it
+			as an alternative inside the assertion. The following pattern
+			excludes filenames that end in either <TT CLASS="western">bat</TT>
+			or <TT CLASS="western">exe</TT>:</P>
+			<P><TT CLASS="western">.*[.](?!bat$|exe$).*$</TT></P>
+		</DIV>
+	</DIV>
+	<DIV ID="modifying-strings" DIR="LTR">
+		<H2 CLASS="western">Modifying Strings<A HREF="#modifying-strings">&para;</A></H2>
+		<P>Up to this point, we&rsquo;ve simply performed searches against
+		a static string. Regular expressions are also commonly used to
+		modify strings in various ways, using the following pattern
+		methods:</P>
+		<TABLE BORDER=1 CELLPADDING=2 CELLSPACING=2>
+			<COL WIDTH=28>
+			<COL WIDTH=72>
+			<THEAD>
+				<TR VALIGN=BOTTOM>
+					<TH>
+						<P>Method/Attribute</P>
+					</TH>
+					<TH>
+						<P>Purpose</P>
+					</TH>
+				</TR>
+			</THEAD>
+			<TBODY>
+				<TR VALIGN=TOP>
+					<TD>
+						<P><TT CLASS="western">split()</TT></P>
+					</TD>
+					<TD>
+						<P>Split the string into a list, splitting it wherever the RE
+						matches</P>
+					</TD>
+				</TR>
+				<TR VALIGN=TOP>
+					<TD>
+						<P><TT CLASS="western">sub()</TT></P>
+					</TD>
+					<TD>
+						<P>Find all substrings where the RE matches, and replace them
+						with a different string</P>
+					</TD>
+				</TR>
+				<TR VALIGN=TOP>
+					<TD>
+						<P><TT CLASS="western">subn()</TT></P>
+					</TD>
+					<TD>
+						<P>Does the same thing as <TT CLASS="western">sub()</TT>, but
+						returns the new string and the number of replacements</P>
+					</TD>
+				</TR>
+			</TBODY>
+		</TABLE>
+		<DIV ID="splitting-strings" DIR="LTR">
+			<H3 CLASS="western">Splitting Strings<A HREF="#splitting-strings">&para;</A></H3>
+			<P>The <TT CLASS="western">split()</TT> method of a pattern splits
+			a string apart wherever the RE matches, returning a list of the
+			pieces. It&rsquo;s similar to the <TT CLASS="western">split()</TT>
+			method of strings but provides much more generality in the
+			delimiters that you can split by; <TT CLASS="western">split()</TT>
+			only supports splitting by whitespace or by a fixed string. As
+			you&rsquo;d expect, there&rsquo;s a module-level <TT CLASS="western"><A HREF="../library/re.html#re.split">re.split()</A></TT>
+			function, too.</P>
+			<DL>
+				<DT STYLE="margin-bottom: 0.2in"><TT CLASS="western">.split</TT><FONT SIZE=4>(</FONT><EM>string</EM>[,
+				<EM>maxsplit=0</EM>]<FONT SIZE=4>)</FONT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Split <EM>string</EM> by the matches of the regular expression.
+				If capturing parentheses are used in the RE, then their contents
+				will also be returned as part of the resulting list. If <EM>maxsplit</EM>
+				is nonzero, at most <EM>maxsplit</EM> splits are performed.</DD></DL>
+			<P>
+			You can limit the number of splits made, by passing a value for
+			<EM>maxsplit</EM>. When <EM>maxsplit</EM> is nonzero, at most
+			<EM>maxsplit</EM> splits will be made, and the remainder of the
+			string is returned as the final element of the list. In the
+			following example, the delimiter is any sequence of
+			non-alphanumeric characters.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile(r'\W+')
+&gt;&gt;&gt; p.split('This is a test, short and sweet, of split().')
+['This', 'is', 'a', 'test', 'short', 'and', 'sweet', 'of', 'split', '']
+&gt;&gt;&gt; p.split('This is a test, short and sweet, of split().', 3)
+['This', 'is', 'a', 'test, short and sweet, of split().']</PRE><P>
+			Sometimes you&rsquo;re not only interested in what the text
+			between delimiters is, but also need to know what the delimiter
+			was. If capturing parentheses are used in the RE, then their
+			values are also returned as part of the list. Compare the
+			following calls:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile(r'\W+')
+&gt;&gt;&gt; p2 = re.compile(r'(\W+)')
+&gt;&gt;&gt; p.split('This... is a test.')
+['This', 'is', 'a', 'test', '']
+&gt;&gt;&gt; p2.split('This... is a test.')
+['This', '... ', 'is', ' ', 'a', ' ', 'test', '.', '']</PRE><P>
+			The module-level function <TT CLASS="western"><A HREF="../library/re.html#re.split">re.split()</A></TT>
+			adds the RE to be used as the first argument, but is otherwise the
+			same.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; re.split('[\W]+', 'Words, words, words.')
+['Words', 'words', 'words', '']
+&gt;&gt;&gt; re.split('([\W]+)', 'Words, words, words.')
+['Words', ', ', 'words', ', ', 'words', '.', '']
+&gt;&gt;&gt; re.split('[\W]+', 'Words, words, words.', 1)
+['Words', 'words, words.']</PRE>
+		</DIV>
+		<DIV ID="search-and-replace" DIR="LTR">
+			<H3 CLASS="western">Search and Replace<A HREF="#search-and-replace">&para;</A></H3>
+			<P>Another common task is to find all the matches for a pattern,
+			and replace them with a different string. The <TT CLASS="western">sub()</TT>
+			method takes a replacement value, which can be either a string or
+			a function, and the string to be processed.</P>
+			<DL>
+				<DT STYLE="margin-bottom: 0.2in"><TT CLASS="western">.sub</TT><FONT SIZE=4>(</FONT><EM>replacement</EM>,
+				<EM>string</EM>[, <EM>count=0</EM>]<FONT SIZE=4>)</FONT> 
+				</DT><DD STYLE="margin-bottom: 0.2in">
+				Returns the string obtained by replacing the leftmost
+				non-overlapping occurrences of the RE in <EM>string</EM> by the
+				replacement <EM>replacement</EM>. If the pattern isn&rsquo;t
+				found, <EM>string</EM> is returned unchanged.</DD><DD STYLE="margin-bottom: 0.2in">
+				The optional argument <EM>count</EM> is the maximum number of
+				pattern occurrences to be replaced; <EM>count</EM> must be a
+				non-negative integer. The default value of 0 means to replace all
+				occurrences.</DD></DL>
+			<P>
+			Here&rsquo;s a simple example of using the <TT CLASS="western">sub()</TT>
+			method. It replaces colour names with the word <TT CLASS="western">colour</TT>:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile( '(blue|white|red)')
+&gt;&gt;&gt; p.sub( 'colour', 'blue socks and red shoes')
+'colour socks and colour shoes'
+&gt;&gt;&gt; p.sub( 'colour', 'blue socks and red shoes', count=1)
+'colour socks and red shoes'</PRE><P>
+			The <TT CLASS="western">subn()</TT> method does the same work, but
+			returns a 2-tuple containing the new string value and the number
+			of replacements that were performed:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile( '(blue|white|red)')
+&gt;&gt;&gt; p.subn( 'colour', 'blue socks and red shoes')
+('colour socks and colour shoes', 2)
+&gt;&gt;&gt; p.subn( 'colour', 'no colours at all')
+('no colours at all', 0)</PRE><P>
+			Empty matches are replaced only when they&rsquo;re not adjacent to
+			a previous match.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('x*')
+&gt;&gt;&gt; p.sub('-', 'abxd')
+'-a-b-d-'</PRE><P>
+			If <EM>replacement</EM> is a string, any backslash escapes in it
+			are processed. That is, <TT CLASS="western">\n</TT> is converted
+			to a single newline character, <TT CLASS="western">\r</TT> is
+			converted to a carriage return, and so forth. Unknown escapes such
+			as <TT CLASS="western">\j</TT> are left alone. Backreferences,
+			such as <TT CLASS="western">\6</TT>, are replaced with the
+			substring matched by the corresponding group in the RE. This lets
+			you incorporate portions of the original text in the resulting
+			replacement string.</P>
+			<P>This example matches the word <TT CLASS="western">section</TT>
+			followed by a string enclosed in <TT CLASS="western">{</TT>, <TT CLASS="western">}</TT>,
+			and changes <TT CLASS="western">section</TT> to <TT CLASS="western">subsection</TT>:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('section{ ( [^}]* ) }', re.VERBOSE)
+&gt;&gt;&gt; p.sub(r'subsection{\1}','section{First} section{second}')
+'subsection{First} subsection{second}'</PRE><P>
+			There&rsquo;s also a syntax for referring to named groups as
+			defined by the <TT CLASS="western">(?P&lt;name&gt;...)</TT>
+			syntax. <TT CLASS="western">\g&lt;name&gt;</TT> will use the
+			substring matched by the group named <TT CLASS="western">name</TT>,
+			and <TT CLASS="western">\g&lt;number&gt;</TT> uses the
+			corresponding group number. <TT CLASS="western">\g&lt;2&gt;</TT>
+			is therefore equivalent to <TT CLASS="western">\2</TT>, but isn&rsquo;t
+			ambiguous in a replacement string such as <TT CLASS="western">\g&lt;2&gt;0</TT>.
+			(<TT CLASS="western">\20</TT> would be interpreted as a reference
+			to group 20, not a reference to group 2 followed by the literal
+			character <TT CLASS="western">'0'</TT>.) The following
+			substitutions are all equivalent, but use all three variations of
+			the replacement string.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; p = re.compile('section{ (?P&lt;name&gt; [^}]* ) }', re.VERBOSE)
+&gt;&gt;&gt; p.sub(r'subsection{\1}','section{First}')
+'subsection{First}'
+&gt;&gt;&gt; p.sub(r'subsection{\g&lt;1&gt;}','section{First}')
+'subsection{First}'
+&gt;&gt;&gt; p.sub(r'subsection{\g&lt;name&gt;}','section{First}')
+'subsection{First}'</PRE><P>
+			<EM>replacement</EM> can also be a function, which gives you even
+			more control. If <EM>replacement</EM> is a function, the function
+			is called for every non-overlapping occurrence of <EM>pattern</EM>.
+			On each call, the function is passed a <EM><A HREF="../library/re.html#match-objects">match
+			object</A></EM> argument for the match and can use this
+			information to compute the desired replacement string and return
+			it.</P>
+			<P>In the following example, the replacement function translates
+			decimals into hexadecimal:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; def hexrepl(match):
+...     &quot;Return the hex string for a decimal number&quot;
+...     value = int(match.group())
+...     return hex(value)
+...
+&gt;&gt;&gt; p = re.compile(r'\d+')
+&gt;&gt;&gt; p.sub(hexrepl, 'Call 65490 for printing, 49152 for user code.')
+'Call 0xffd2 for printing, 0xc000 for user code.'</PRE><P>
+			When using the module-level <TT CLASS="western"><A HREF="../library/re.html#re.sub">re.sub()</A></TT>
+			function, the pattern is passed as the first argument. The pattern
+			may be provided as an object or as a string; if you need to
+			specify regular expression flags, you must either use a pattern
+			object as the first parameter, or use embedded modifiers in the
+			pattern string, e.g. <TT CLASS="western">sub(&quot;(?i)b+&quot;,
+			&quot;x&quot;, &quot;bbbb BBBB&quot;)</TT> returns <TT CLASS="western">'x
+			x'</TT>.</P>
+		</DIV>
+	</DIV>
+	<DIV ID="common-problems" DIR="LTR">
+		<H2 CLASS="western">Common Problems<A HREF="#common-problems">&para;</A></H2>
+		<P>Regular expressions are a powerful tool for some applications,
+		but in some ways their behaviour isn&rsquo;t intuitive and at times
+		they don&rsquo;t behave the way you may expect them to. This
+		section will point out some of the most common pitfalls.</P>
+		<DIV ID="use-string-methods" DIR="LTR">
+			<H3 CLASS="western">Use String Methods<A HREF="#use-string-methods">&para;</A></H3>
+			<P>Sometimes using the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module is a mistake. If you&rsquo;re matching a fixed string, or a
+			single character class, and you&rsquo;re not using any <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			features such as the <TT CLASS="western">IGNORECASE</TT> flag,
+			then the full power of regular expressions may not be required.
+			Strings have several methods for performing operations with fixed
+			strings and they&rsquo;re usually much faster, because the
+			implementation is a single small C loop that&rsquo;s been
+			optimized for the purpose, instead of the large, more generalized
+			regular expression engine.</P>
+			<P>One example might be replacing a single fixed string with
+			another one; for example, you might replace <TT CLASS="western">word</TT>
+			with <TT CLASS="western">deed</TT>. <TT CLASS="western">re.sub()</TT>
+			seems like the function to use for this, but consider the
+			<TT CLASS="western">replace()</TT> method. Note that <TT CLASS="western">replace()</TT>
+			will also replace <TT CLASS="western">word</TT> inside words,
+			turning <TT CLASS="western">swordfish</TT> into <TT CLASS="western">sdeedfish</TT>,
+			but the naive RE <TT CLASS="western">word</TT> would have done
+			that, too. (To avoid performing the substitution on parts of
+			words, the pattern would have to be <TT CLASS="western">\bword\b</TT>,
+			in order to require that <TT CLASS="western">word</TT> have a word
+			boundary on either side. This takes the job beyond <TT CLASS="western">replace()</TT>&lsquo;s
+			abilities.)</P>
+			<P>Another common task is deleting every occurrence of a single
+			character from a string or replacing it with another single
+			character. You might do this with something like <TT CLASS="western">re.sub('\n',
+			' ', S)</TT>, but <TT CLASS="western">translate()</TT> is capable
+			of doing both tasks and will be faster than any regular expression
+			operation can be.</P>
+			<P>In short, before turning to the <TT CLASS="western"><A HREF="../library/re.html#module-re">re</A></TT>
+			module, consider whether your problem can be solved with a faster
+			and simpler string method.</P>
+		</DIV>
+		<DIV ID="match-versus-search" DIR="LTR">
+			<H3 CLASS="western">match() versus search()<A HREF="#match-versus-search">&para;</A></H3>
+			<P>The <TT CLASS="western">match()</TT> function only checks if
+			the RE matches at the beginning of the string while <TT CLASS="western">search()</TT>
+			will scan forward through the string for a match. It&rsquo;s
+			important to keep this distinction in mind. Remember, <TT CLASS="western">match()</TT>
+			will only report a successful match which will start at 0; if the
+			match wouldn&rsquo;t start at zero, <TT CLASS="western">match()</TT>
+			will <EM>not</EM> report it.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; print re.match('super', 'superstition').span()
+(0, 5)
+&gt;&gt;&gt; print re.match('super', 'insuperable')
+None</PRE><P>
+			On the other hand, <TT CLASS="western">search()</TT> will scan
+			forward through the string, reporting the first match it finds.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; print re.search('super', 'superstition').span()
+(0, 5)
+&gt;&gt;&gt; print re.search('super', 'insuperable').span()
+(2, 7)</PRE><P>
+			Sometimes you&rsquo;ll be tempted to keep using <TT CLASS="western"><A HREF="../library/re.html#re.match">re.match()</A></TT>,
+			and just add <TT CLASS="western">.*</TT> to the front of your RE.
+			Resist this temptation and use <TT CLASS="western"><A HREF="../library/re.html#re.search">re.search()</A></TT>
+			instead. The regular expression compiler does some analysis of REs
+			in order to speed up the process of looking for a match. One such
+			analysis figures out what the first character of a match must be;
+			for example, a pattern starting with <TT CLASS="western">Crow</TT>
+			must match starting with a <TT CLASS="western">'C'</TT>. The
+			analysis lets the engine quickly scan through the string looking
+			for the starting character, only trying the full match if a <TT CLASS="western">'C'</TT>
+			is found.</P>
+			<P>Adding <TT CLASS="western">.*</TT> defeats this optimization,
+			requiring scanning to the end of the string and then backtracking
+			to find a match for the rest of the RE. Use <TT CLASS="western"><A HREF="../library/re.html#re.search">re.search()</A></TT>
+			instead.</P>
+		</DIV>
+		<DIV ID="greedy-versus-non-greedy" DIR="LTR">
+			<H3 CLASS="western">Greedy versus Non-Greedy<A HREF="#greedy-versus-non-greedy">&para;</A></H3>
+			<P>When repeating a regular expression, as in <TT CLASS="western">a*</TT>,
+			the resulting action is to consume as much of the pattern as
+			possible. This fact often bites you when you&rsquo;re trying to
+			match a pair of balanced delimiters, such as the angle brackets
+			surrounding an HTML tag. The naive pattern for matching a single
+			HTML tag doesn&rsquo;t work because of the greedy nature of <TT CLASS="western">.*</TT>.</P>
+			<PRE CLASS="western">&gt;&gt;&gt; s = '&lt;html&gt;&lt;head&gt;&lt;title&gt;Title&lt;/title&gt;'
+&gt;&gt;&gt; len(s)
+32
+&gt;&gt;&gt; print re.match('&lt;.*&gt;', s).span()
+(0, 32)
+&gt;&gt;&gt; print re.match('&lt;.*&gt;', s).group()
+&lt;html&gt;&lt;head&gt;&lt;title&gt;Title&lt;/title&gt;</PRE><P>
+			The RE matches the <TT CLASS="western">'&lt;'</TT> in <TT CLASS="western">&lt;html&gt;</TT>,
+			and the <TT CLASS="western">.*</TT> consumes the rest of the
+			string. There&rsquo;s still more left in the RE, though, and the <TT CLASS="western">&gt;</TT>
+			can&rsquo;t match at the end of the string, so the regular
+			expression engine has to backtrack character by character until it
+			finds a match for the <TT CLASS="western">&gt;</TT>. The final
+			match extends from the <TT CLASS="western">'&lt;'</TT> in <TT CLASS="western">&lt;html&gt;</TT>
+			to the <TT CLASS="western">'&gt;'</TT> in <TT CLASS="western">&lt;/title&gt;</TT>,
+			which isn&rsquo;t what you want.</P>
+			<P>In this case, the solution is to use the non-greedy qualifiers
+			<TT CLASS="western">*?</TT>, <TT CLASS="western">+?</TT>, <TT CLASS="western">??</TT>,
+			or <TT CLASS="western">{m,n}?</TT>, which match as <EM>little</EM>
+			text as possible. In the above example, the <TT CLASS="western">'&gt;'</TT>
+			is tried immediately after the first <TT CLASS="western">'&lt;'</TT>
+			matches, and when it fails, the engine advances a character at a
+			time, retrying the <TT CLASS="western">'&gt;'</TT> at every step.
+			This produces just the right result:</P>
+			<PRE CLASS="western">&gt;&gt;&gt; print re.match('&lt;.*?&gt;', s).group()
+&lt;html&gt;</PRE><P>
+			(Note that parsing HTML or XML with regular expressions is
+			painful. Quick-and-dirty patterns will handle common cases, but
+			HTML and XML have special cases that will break the obvious
+			regular expression; by the time you&rsquo;ve written a regular
+			expression that handles all of the possible cases, the patterns
+			will be <EM>very</EM> complicated. Use an HTML or XML parser
+			module for such tasks.)</P>
+		</DIV>
+		<DIV ID="using-re-verbose" DIR="LTR">
+			<H3 CLASS="western">Using re.VERBOSE<A HREF="#using-re-verbose">&para;</A></H3>
+			<P>By now you&rsquo;ve probably noticed that regular expressions
+			are a very compact notation, but they&rsquo;re not terribly
+			readable. REs of moderate complexity can become lengthy
+			collections of backslashes, parentheses, and metacharacters,
+			making them difficult to read and understand.</P>
+			<P>For such REs, specifying the <TT CLASS="western">re.VERBOSE</TT>
+			flag when compiling the regular expression can be helpful, because
+			it allows you to format the regular expression more clearly.</P>
+			<P>The <TT CLASS="western">re.VERBOSE</TT> flag has several
+			effects. Whitespace in the regular expression that <EM>isn&rsquo;t</EM>
+			inside a character class is ignored. This means that an expression
+			such as <TT CLASS="western">dog | cat</TT> is equivalent to the
+			less readable <TT CLASS="western">dog|cat</TT>, but <TT CLASS="western">[a
+			b]</TT> will still match the characters <TT CLASS="western">'a'</TT>,
+			<TT CLASS="western">'b'</TT>, or a space. In addition, you can
+			also put comments inside a RE; comments extend from a <TT CLASS="western">#</TT>
+			character to the next newline. When used with triple-quoted
+			strings, this enables REs to be formatted more neatly:</P>
+			<PRE CLASS="western">pat = re.compile(r&quot;&quot;&quot;
+ \s*                 # Skip leading whitespace
+ (?P&lt;header&gt;[^:]+)   # Header name
+ \s* :               # Whitespace, and a colon
+ (?P&lt;value&gt;.*?)      # The header's value -- *? used to
+                     # lose the following trailing whitespace
+ \s*$                # Trailing whitespace to end-of-line
+&quot;&quot;&quot;, re.VERBOSE)</PRE><P>
+			This is far more readable than:</P>
+			<PRE CLASS="western" STYLE="margin-bottom: 0.2in">pat = re.compile(r&quot;\s*(?P&lt;header&gt;[^:]+)\s*:(?P&lt;value&gt;.*?)\s*$&quot;)</PRE>
+		</DIV>
+	</DIV>
+	<DIV ID="feedback" DIR="LTR">
+		<H2 CLASS="western">Feedback<A HREF="#feedback">&para;</A></H2>
+		<P>Regular expressions are a complicated topic. Did this document
+		help you understand them? Were there parts that were unclear, or
+		Problems you encountered that weren&rsquo;t covered here? If so,
+		please send suggestions for improvements to the author.</P>
+		<P>The most complete book on regular expressions is almost
+		certainly Jeffrey Friedl&rsquo;s Mastering Regular Expressions,
+		published by O&rsquo;Reilly. Unfortunately, it exclusively
+		concentrates on Perl and Java&rsquo;s flavours of regular
+		expressions, and doesn&rsquo;t contain any Python material at all,
+		so it won&rsquo;t be useful as a reference for programming in
+		Python. (The first edition covered Python&rsquo;s now-removed <TT CLASS="western">regex</TT>
+		module, which won&rsquo;t help you much.) Consider checking it out
+		from your library.</P>
+	</DIV>
+</DIV>
+</BODY>
+</HTML>
